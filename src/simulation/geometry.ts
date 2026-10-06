@@ -28,6 +28,26 @@ export function closestPointOnSegment(p: Point, { start, end }: Segment): Point 
     };
 }
 
+// Produit vectoriel 2D : nul si les deux vecteurs sont colinéaires.
+function cross(ax: number, az: number, bx: number, bz: number): number {
+    return ax * bz - az * bx;
+}
+
+// Distance le long d'un rayon (origine + direction de longueur 1) jusqu'au segment, ou null s'il ne le touche pas.
+// On résout origine + t·direction = start + u·(end - start) : t ≥ 0 (devant), 0 ≤ u ≤ 1 (dans le segment).
+export function raySegmentDistance(origin: Point, dirX: number, dirZ: number, {start, end}: Segment): number | null {
+    const edgeX = end.x - start.x;
+    const edgeZ = end.z - start.z;
+    const denominator = cross(dirX, dirZ, edgeX, edgeZ);
+    if (denominator === 0) return null; // rayon parallèle au segment
+
+    const toStartX = start.x - origin.x;
+    const toStartZ = start.z - origin.z;
+    const t = cross(toStartX, toStartZ, edgeX, edgeZ) / denominator;
+    const u = cross(toStartX, toStartZ, dirX, dirZ) / denominator;
+    return t >= 0 && u >= 0 && u <= 1 ? t : null;
+}
+
 export function distance(a: Point, b: Point): number {
     return Math.hypot(b.x - a.x, b.z - a.z);
 }

@@ -1,6 +1,8 @@
 import {
     AxesHelper,
+    BufferAttribute,
     BufferGeometry,
+    Color,
     Float32BufferAttribute,
     Group,
     LineBasicMaterial,
@@ -8,6 +10,7 @@ import {
     LineSegments,
     Vector3,
 } from "three";
+import { SENSOR_ANGLES, SENSOR_RANGE, type Sensors } from "../simulation/Sensors";
 import type { Simulation } from "../simulation/Simulation";
 import type { Track } from "../simulation/Track";
 
@@ -18,16 +21,22 @@ const WALL_COLOR = 0x39ff88;
 const PATH_COLOR = 0x4da3ff;
 const FREE_COLOR = 0xffd23f;
 const CONTACT_COLOR = 0xff3b3b;
+const RAY_NEAR = new Color(0xff3b3b);
+const RAY_FAR = new Color(0x39ff88);
 
-interface Collider {
+interface DebugCar {
     simulation: Simulation;
+    sensors: Sensors;
     circle: LineLoop<BufferGeometry, LineBasicMaterial>;
+    rays: LineSegments<BufferGeometry, LineBasicMaterial>;
 }
 
-// Montre ce que voit la simulation : les segments des murs, le cercle de chaque voiture, la ligne centrale.
+// Montre ce que voit la simulation : les segments des murs, la ligne centrale,
+// et pour chaque voiture son cercle de collision et ses capteurs.
 export class DebugView {
     readonly group = new Group();
-    private readonly colliders: Collider[] = [];
+    private readonly cars: DebugCar[] = [];
+    private readonly rayColor = new Color();
 
     constructor(track: Track) {
         this.group.visible = false;
@@ -43,22 +52,47 @@ export class DebugView {
         this.group.add(new AxesHelper(20));
     }
 
-    addCar(simulation: Simulation) {
+    addCar(simulation: Simulation, sensors: Sensors) {
         const {radius} = simulation.car;
         const points = Array.from({length: CIRCLE_SEGMENTS}, (_, i) => {
             const angle = (i / CIRCLE_SEGMENTS) * Math.PI * 2;
             return new Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
         });
         const circle = new LineLoop(new BufferGeometry().setFromPoints(points), new LineBasicMaterial({color: FREE_COLOR}));
-        this.group.add(circle);
-        this.colliders.push({simulation, circle});
+
+        // Deux sommets par rayon (origine, impact), réécrits à chaque image.
+        const vertexCount = SENSOR_ANGLES.length * 2;
+        const rayGeometry = new BufferGeometry();
+        rayGeometry.setAttribute("position", new BufferAttribute(new Float32Array(vertexCount * 3), 3));
+        rayGeometry.setAttribute("color", new BufferAttribute(new Float32Array(vertexCount * 3), 3));
+        const rays = new LineSegments(rayGeometry, new LineBasicMaterial({vertexColors: true}));
+        // La sphère englobante est calculée une seule fois ; comme les sommets bougent, three.js
+        // croirait à tort les rayons hors champ et ne les dessinerait plus.
+        rays.frustumCulled = false;
+
+        this.group.add(circle, rays);
+        this.cars.push({simulation, sensors, circle, rays});
     }
 
     sync() {
-        for (const {simulation, circle} of this.colliders) {
-            const {x, z} = simulation.renderPose();
-            circle.position.set(x, LINE_Y, z);
+        for (const {simulation, sensors, circle, rays} of this.cars) {
+            const pose = simulation.renderPose();
+            circle.position.set(pose.x, LINE_Y, pose.z);
             circle.material.color.set(simulation.inContact ? CONTACT_COLOR : FREE_COLOR);
+
+            const positions = rays.geometry.getAttribute("position");
+            const colors = rays.geometry.getAttribute("color");
+            sensors.distances.forEach((distance, i) => {
+                const angle = pose.rotation + SENSOR_ANGLES[i];
+                positions.setXYZ(2 * i, pose.x, LINE_Y, pose.z);
+                positions.setXYZ(2 * i + 1, pose.x + Math.sin(angle) * distance, LINE_Y, pose.z + Math.cos(angle) * distance);
+
+                const {r, g, b} = this.rayColor.lerpColors(RAY_NEAR, RAY_FAR, distance / SENSOR_RANGE);
+                colors.setXYZ(2 * i, r, g, b);
+                colors.setXYZ(2 * i + 1, r, g, b);
+            });
+            positions.needsUpdate = true;
+            colors.needsUpdate = true;
         }
     }
 }

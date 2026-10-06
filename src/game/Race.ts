@@ -6,6 +6,7 @@ import { Autopilot, type AutopilotSettings } from "../simulation/Autopilot";
 import { Car } from "../simulation/Car";
 import type { CarControls } from "../simulation/CarControls";
 import { Progress } from "../simulation/Progress";
+import { Sensors } from "../simulation/Sensors";
 import { Simulation } from "../simulation/Simulation";
 import { Track } from "../simulation/Track";
 import type { TrackDefinition } from "../simulation/tracks";
@@ -24,6 +25,7 @@ export interface Entrant {
     car: Car;
     simulation: Simulation;
     progress: Progress;
+    sensors: Sensors;
     controls: CarControls;
     autopilot: Autopilot | null;
     view: CarView;
@@ -73,6 +75,7 @@ export class Race {
         for (const entrant of this.entrants) {
             entrant.autopilot?.drive(entrant.car);
             entrant.simulation.update(dt, entrant.controls);
+            entrant.sensors.update(entrant.car, this.track.walls);
 
             const crossing = entrant.progress.update(entrant.car);
             if (crossing === -1) entrant.lapStartedAt = null;
@@ -116,11 +119,12 @@ export class Race {
         const car = new Car(start.x, start.z, this.track.headingAt(startIndex));
         const simulation = new Simulation(car, this.track);
         const progress = new Progress(this.track, startIndex);
+        const sensors = new Sensors();
         const controls = createControls(progress);
         const view = new CarView(color);
 
         const entrant: Entrant = {
-            name, color, car, simulation, progress, controls, view,
+            name, color, car, simulation, progress, sensors, controls, view,
             autopilot: controls instanceof Autopilot ? controls : null,
             laps: 0,
             // Le joueur part sur la ligne : son premier tour compte. Les autres démarrent au chrono au premier passage.
@@ -131,7 +135,7 @@ export class Race {
         };
         this.entrants.push(entrant);
         this.group.add(view.object);
-        this.debugView.addCar(simulation);
+        this.debugView.addCar(simulation, sensors);
         return entrant;
     }
 
