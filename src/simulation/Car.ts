@@ -13,6 +13,7 @@ export class Car {
     braking = 30;
     friction = 5;
     turnSpeed = 2;
+    radius = 2;
 
     constructor(x = 0, z = 0, rotation = 0, maxSpeed = 100) {
         this.x = x;

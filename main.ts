@@ -1,6 +1,9 @@
 import * as THREE from 'three';
-import { Car } from './src/simulation/car';
+import { Car } from './src/simulation/Car';
+import { Simulation } from './src/simulation/Simulation';
+import { Track } from './src/simulation/Track';
 import { CarView } from './src/render/CarView';
+import { TrackView } from './src/render/TrackView';
 import { InputState } from './src/input/InputState';
 
 let dt = 0;
@@ -10,9 +13,15 @@ const controls = new InputState();
 
 const scene = new THREE.Scene();
 
-const c = new Car(2,2)
-const carV = new CarView(c)
+const track = Track.fromPolygons(
+  [{ x: -25, z: -13 }, { x: 25, z: -13 }, { x: 25, z: 13 }, { x: -25, z: 13 }],
+  [{ x: -15, z: -3 }, { x: 15, z: -3 }, { x: 15, z: 3 }, { x: -15, z: 3 }],
+)
+
+const simulation = new Simulation(new Car(0, -8, Math.PI / 2), track)
+const carV = new CarView(simulation.car)
 scene.add(carV.mesh)
+scene.add(new TrackView(track).group)
 
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 camera.position.set( 0, 20, 0 );
@@ -40,7 +49,7 @@ function animate( time: number ) {
   }
 
   lastTime = time
-  c.update(dt, controls)
+  simulation.update(dt, controls)
   carV.sync()
   renderer.render( scene, camera );
 }
