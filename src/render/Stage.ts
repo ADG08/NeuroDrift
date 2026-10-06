@@ -28,6 +28,7 @@ export class Stage {
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         container.appendChild(this.renderer.domElement);
+        logGpu(this.renderer);
 
         // Le sol se fond dans le brouillard, de la même couleur que le fond : pas d'horizon visible.
         this.scene.background = new Color(BACKGROUND);
@@ -48,4 +49,12 @@ export class Stage {
     render() {
         this.renderer.render(this.scene, this.camera);
     }
+}
+
+// Indique dans la console quelle carte graphique le navigateur utilise réellement.
+// « SwiftShader » ou « Microsoft Basic Render » = rendu logiciel, l'accélération matérielle est désactivée.
+function logGpu(renderer: WebGLRenderer) {
+    const gl = renderer.getContext();
+    const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+    console.info("GPU :", debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
 }
