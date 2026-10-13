@@ -1,4 +1,5 @@
-import { closedPolyline, headingTo, type Point, type Segment } from "./geometry";
+import { closedPolyline, distance, headingTo, type Point, type Segment } from "./geometry";
+import { WallGrid } from "./WallGrid";
 
 // Un circuit est décrit par sa ligne centrale (boucle fermée) et sa largeur.
 // Les deux bords sont obtenus en décalant chaque point perpendiculairement à la piste.
@@ -8,6 +9,9 @@ export class Track {
     readonly leftBorder: Point[] = [];
     readonly rightBorder: Point[] = [];
     readonly walls: Segment[];
+    // Longueur de la ligne centrale, pour convertir une avancée en points en mètres.
+    readonly length: number;
+    private readonly grid: WallGrid;
 
     constructor(centerline: Point[], width: number) {
         this.centerline = centerline;
@@ -29,6 +33,13 @@ export class Track {
         });
 
         this.walls = [...closedPolyline(this.leftBorder), ...closedPolyline(this.rightBorder)];
+        this.grid = new WallGrid(this.walls);
+        this.length = centerline.reduce((sum, p, i) => sum + distance(p, centerline[this.wrapIndex(i + 1)]), 0);
+    }
+
+    // Murs proches d'une zone rectangulaire (tableau réutilisé à chaque appel).
+    wallsInBox(minX: number, minZ: number, maxX: number, maxZ: number): readonly Segment[] {
+        return this.grid.query(minX, minZ, maxX, maxZ);
     }
 
     wrapIndex(i: number): number {

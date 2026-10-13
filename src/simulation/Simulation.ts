@@ -22,6 +22,13 @@ export class Simulation {
         this.previous = {x: car.x, z: car.z, rotation: car.rotation};
     }
 
+    // À appeler après avoir replacé la voiture : oublie le temps en attente et la pose précédente.
+    public reset() {
+        this.accumulator = 0;
+        this.previous = {x: this.car.x, z: this.car.z, rotation: this.car.rotation};
+        this.inContact = false;
+    }
+
     // Consomme le temps écoulé par pas fixes ; le reste est gardé pour la frame suivante.
     public update(dt: number, controls: CarControls) {
         this.accumulator += dt;
@@ -47,8 +54,9 @@ export class Simulation {
     private step(dt: number, controls: CarControls) {
         this.car.update(dt, controls);
 
+        const {x, z, radius} = this.car;
         let hitWall = false;
-        for (const wall of this.track.walls) {
+        for (const wall of this.track.wallsInBox(x - radius, z - radius, x + radius, z + radius)) {
             if (this.collideWith(wall)) hitWall = true;
         }
         this.inContact = hitWall;

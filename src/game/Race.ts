@@ -5,6 +5,7 @@ import { TrackView } from "../render/TrackView";
 import { Autopilot, type AutopilotSettings } from "../simulation/Autopilot";
 import { Car } from "../simulation/Car";
 import type { CarControls } from "../simulation/CarControls";
+import type { Driver } from "../simulation/Driver";
 import { Progress } from "../simulation/Progress";
 import { Sensors } from "../simulation/Sensors";
 import { Simulation } from "../simulation/Simulation";
@@ -27,8 +28,10 @@ export interface Entrant {
     progress: Progress;
     sensors: Sensors;
     controls: CarControls;
-    autopilot: Autopilot | null;
+    driver: Driver | null;   // null : commandes venant du joueur
     view: CarView;
+    startIndex: number;
+    retired: boolean;   // éliminée : plus simulée, affichée en transparence
     laps: number;
     lapStartedAt: number | null;   // null : tour en cours non chronométré
     bestLap: number | null;
@@ -40,7 +43,7 @@ export type RaceEvent =
     | {type: "lap"; entrant: Entrant; time: number; isRecord: boolean}
     | {type: "wall"; entrant: Entrant};
 
-// Une course : un circuit et des concurrents (joueur ou pilotes automatiques), chacun avec sa Simulation.
+// Une course : un circuit et des concurrents (joueur, pilotes automatiques ou IA), chacun avec sa Simulation.
 export class Race {
     readonly definition: TrackDefinition;
     readonly track: Track;
@@ -68,14 +71,49 @@ export class Race {
             progress => new Autopilot(this.track, progress, profile));
     }
 
+    addDriver(name: string, color: number, driver: Driver, startIndex = 0): Entrant {
+        return this.addEntrant(name, color, startIndex, () => driver);
+    }
+
+    // Sort une voiture de la course : elle n'est plus simulée. Grisée si elle est éliminée, pas si elle est arrivée.
+    retire(entrant: Entrant, dim = true) {
+        entrant.retired = true;
+        entrant.view.setRetired(dim);
+    }
+
+    // Replace tous les concurrents sur leur ligne de départ, sans reconstruire la scène.
+    restart() {
+        this.time = 0;
+        this.record = null;
+        for (const entrant of this.entrants) {
+            const {car, startIndex} = entrant;
+            const start = this.track.pointAt(startIndex);
+            car.x = start.x;
+            car.z = start.z;
+            car.rotation = this.track.headingAt(startIndex);
+            car.currentSpeed = 0;
+            entrant.simulation.reset();
+            entrant.progress.reset(startIndex);
+            entrant.sensors.update(car, this.track);
+            entrant.retired = false;
+            entrant.view.setRetired(false);
+            entrant.laps = 0;
+            entrant.lapStartedAt = startIndex === 0 ? 0 : null;
+            entrant.bestLap = null;
+            entrant.wasInContact = false;
+            entrant.lastWallEventAt = -Infinity;
+        }
+    }
+
     update(dt: number): RaceEvent[] {
         this.time += dt;
         const events: RaceEvent[] = [];
 
         for (const entrant of this.entrants) {
-            entrant.autopilot?.drive(entrant.car);
+            if (entrant.retired) continue;
+            entrant.driver?.drive(entrant.car, entrant.sensors);
             entrant.simulation.update(dt, entrant.controls);
-            entrant.sensors.update(entrant.car, this.track.walls);
+            entrant.sensors.update(entrant.car, this.track);
 
             const crossing = entrant.progress.update(entrant.car);
             if (crossing === -1) entrant.lapStartedAt = null;
@@ -120,12 +158,14 @@ export class Race {
         const simulation = new Simulation(car, this.track);
         const progress = new Progress(this.track, startIndex);
         const sensors = new Sensors();
+        sensors.update(car, this.track);
         const controls = createControls(progress);
         const view = new CarView(color);
 
         const entrant: Entrant = {
-            name, color, car, simulation, progress, sensors, controls, view,
-            autopilot: controls instanceof Autopilot ? controls : null,
+            name, color, car, simulation, progress, sensors, controls, view, startIndex,
+            driver: isDriver(controls) ? controls : null,
+            retired: false,
             laps: 0,
             // Le joueur part sur la ligne : son premier tour compte. Les autres démarrent au chrono au premier passage.
             lapStartedAt: startIndex === 0 ? 0 : null,
@@ -146,4 +186,8 @@ export class Race {
         if (isRecord) this.record = time;
         return {type: "lap", entrant, time, isRecord};
     }
+}
+
+function isDriver(controls: CarControls): controls is Driver {
+    return "drive" in controls;
 }

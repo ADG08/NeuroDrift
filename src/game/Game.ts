@@ -1,13 +1,21 @@
+import { NeuralDriver } from "../ai/NeuralDriver";
 import { InputState } from "../input/InputState";
 import type { Stage } from "../render/Stage";
+import type { Pose } from "../simulation/geometry";
 import { TRACKS, type TrackDefinition } from "../simulation/tracks";
+import { CarTooltip } from "../ui/CarTooltip";
 import { Hud } from "../ui/Hud";
 import { Menu } from "../ui/Menu";
+import { TrainingHud } from "../ui/TrainingHud";
+import { FocusTracker } from "./FocusTracker";
 import { Race, type BotProfile, type Entrant } from "./Race";
+import { Training } from "./Training";
 
 const PLAYER_COLOR = 0x087f9f;
 // En menu, la caméra change de pilote à intervalle régulier, ou dès qu'un record tombe.
 const FEATURE_DURATION = 12;
+// Vitesses de l'entraînement (touches 1 à 4) : nombre de pas de simulation par image.
+const TRAINING_SPEEDS = [1, 2, 5, 10];
 
 // Pilotes de la course de fond du menu : chacun a sa vitesse, son anticipation et sa trajectoire.
 const BOTS: BotProfile[] = [
@@ -18,18 +26,27 @@ const BOTS: BotProfile[] = [
     {name: "Flux", color: 0xf25ca2, topSpeed: 46, lookahead: 4, line: -0.25},
 ];
 
-// Enchaîne les deux écrans : le menu (course de pilotes automatiques en fond) et la course du joueur.
+type Screen =
+    | {kind: "menu"}
+    | {kind: "race"; player: Entrant}
+    | {kind: "training"; training: Training};
+
+// Enchaîne les écrans : le menu (course de pilotes automatiques en fond), la course du joueur et l'entraînement de l'IA.
 export class Game {
     private readonly stage: Stage;
     private readonly input = new InputState();
     private readonly menu: Menu;
     private readonly hud: Hud;
+    private readonly trainingHud: TrainingHud;
+    private readonly carTooltip: CarTooltip;
+    private readonly focus = new FocusTracker();
+    private screen: Screen = {kind: "menu"};
     private race!: Race;
-    private player: Entrant | null = null;
     private featured!: Entrant;
     private featuredSince = 0;
     private overheadView = false;
     private showColliders = false;
+    private trainingSpeed = TRAINING_SPEEDS[0];
     private elapsed = 0;
 
     constructor(stage: Stage, ui: HTMLElement) {
@@ -37,25 +54,55 @@ export class Game {
         this.menu = new Menu(ui, TRACKS, {
             select: track => this.openMenu(track),
             start: track => this.startRace(track),
+            train: track => this.startTraining(track),
         });
         this.hud = new Hud(ui);
+        this.trainingHud = new TrainingHud(ui);
+        this.carTooltip = new CarTooltip(ui);
         window.addEventListener("keydown", event => this.onKey(event));
         this.openMenu(TRACKS[0]);
     }
 
     update(dt: number) {
         this.elapsed += dt;
+        const rig = this.stage.cameraRig;
+        const {screen} = this;
+
+        if (screen.kind === "training") {
+            const {training} = screen;
+            // Accéléré : plusieurs pas de simulation par image, un seul rendu.
+            for (let i = 0; i < this.trainingSpeed; i++) {
+                if (training.update(dt)) this.trainingHud.drawChart(training.history, training.race.track.length);
+            }
+            this.race.sync();
+            this.trainingHud.update(training, this.trainingSpeed);
+
+            // La caméra et la bulle suivent le premier, avec un délai et un glissement lors des changements.
+            const focused = this.focus.update(training.leader, this.elapsed);
+            const pose = this.focus.pose(this.elapsed);
+            this.follow(pose, dt);
+            const {driver} = focused;
+            this.carTooltip.update(pose, this.stage.camera, {
+                speed: focused.car.currentSpeed,
+                position: training.position(focused),
+                // Intention brute du réseau (avant le seuil) ; à défaut, la commande tout-ou-rien.
+                throttle: driver instanceof NeuralDriver ? driver.throttle : Number(focused.controls.forward),
+                brake: driver instanceof NeuralDriver ? driver.brake : Number(focused.controls.backward),
+                gapToNext: training.gapToNext(focused),
+                currentLap: training.race.time,
+                bestLap: training.recordLap,
+                network: driver instanceof NeuralDriver ? driver.network : null,
+            });
+            return;
+        }
+
         const events = this.race.update(dt);
         this.race.sync();
 
-        const rig = this.stage.cameraRig;
-        if (this.player) {
-            for (const event of events) if (event.entrant === this.player) this.hud.announce(event);
-            this.hud.update(this.player, this.race.time);
-
-            const pose = this.player.simulation.renderPose();
-            if (this.overheadView) rig.overhead(pose, dt);
-            else rig.chase(pose, dt);
+        if (screen.kind === "race") {
+            for (const event of events) if (event.entrant === screen.player) this.hud.announce(event);
+            this.hud.update(screen.player, this.race.time);
+            this.follow(screen.player.simulation.renderPose(), dt);
         } else {
             for (const event of events) {
                 this.menu.addEvent(event, this.race.time);
@@ -69,37 +116,57 @@ export class Game {
         }
     }
 
+    private follow(pose: Pose, dt: number) {
+        if (this.overheadView) this.stage.cameraRig.overhead(pose, dt);
+        else this.stage.cameraRig.chase(pose, dt);
+    }
+
     private openMenu(track: TrackDefinition) {
         const race = new Race(track);
         const n = race.track.centerline.length;
         BOTS.forEach((bot, i) => race.addBot(bot, Math.round((i * n) / BOTS.length)));
 
-        this.load(race);
+        this.load(race, {kind: "menu"});
         this.feature(race.entrants[0]);
-        this.player = null;
-        this.hud.hide();
         this.menu.reset(track);
         this.menu.show();
     }
 
     private startRace(track: TrackDefinition) {
         const race = new Race(track);
-        this.player = race.addPlayer("Toi", PLAYER_COLOR, this.input);
+        const player = race.addPlayer("Toi", PLAYER_COLOR, this.input);
 
-        this.load(race);
-        this.stage.cameraRig.cut();
-        this.menu.hide();
+        this.load(race, {kind: "race", player});
+        this.overheadView = false;
         this.hud.show(track.name);
     }
 
-    private load(race: Race) {
+    private startTraining(track: TrackDefinition) {
+        const training = new Training(track);
+
+        this.load(training.race, {kind: "training", training});
+        // Vue de dessus par défaut : on voit tout l'essaim de voitures.
+        this.overheadView = true;
+        this.trainingSpeed = TRAINING_SPEEDS[0];
+        this.focus.reset();
+        this.trainingHud.show(track.name);
+    }
+
+    private load(race: Race, screen: Screen) {
         if (this.race) {
             this.stage.scene.remove(this.race.group);
             this.race.dispose();
         }
         this.race = race;
+        this.screen = screen;
         race.debugView.group.visible = this.showColliders;
         this.stage.scene.add(race.group);
+        this.stage.cameraRig.cut();
+
+        this.menu.hide();
+        this.hud.hide();
+        this.trainingHud.hide();
+        this.carTooltip.hide();
     }
 
     // Plan de coupe vers une autre voiture, comme une réalisation TV.
@@ -110,14 +177,26 @@ export class Game {
     }
 
     private onKey(event: KeyboardEvent) {
+        const {screen} = this;
         if (event.code === "KeyC") {
             this.showColliders = !this.showColliders;
             this.race.debugView.group.visible = this.showColliders;
-        } else if (event.code === "KeyV" && this.player) {
+        }
+        if (screen.kind === "menu") return;
+
+        if (event.code === "KeyV") {
             this.overheadView = !this.overheadView;
             this.stage.cameraRig.cut();
-        } else if (event.code === "Escape" && this.player) {
+        } else if (event.code === "Escape") {
             this.openMenu(this.race.definition);
+        } else if (screen.kind === "training") {
+            const digit = /^(?:Digit|Numpad)([1-9])$/.exec(event.code);
+            const speed = digit ? TRAINING_SPEEDS[Number(digit[1]) - 1] : undefined;
+            if (speed) this.trainingSpeed = speed;
+            else if (event.code === "KeyN") {
+                screen.training.endGeneration();
+                this.trainingHud.drawChart(screen.training.history, this.race.track.length);
+            }
         }
     }
 }

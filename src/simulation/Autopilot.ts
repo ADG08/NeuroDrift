@@ -1,5 +1,5 @@
 import type { Car } from "./Car";
-import type { CarControls } from "./CarControls";
+import type { Driver } from "./Driver";
 import { headingTo, normalizeAngle } from "./geometry";
 import type { Progress } from "./Progress";
 import type { Track } from "./Track";
@@ -14,9 +14,9 @@ export interface AutopilotSettings {
     line: number;        // trajectoire : -1 bord droit, 0 centre, 1 bord gauche
 }
 
-// Pilote scripté qui suit la ligne centrale. Il produit des CarControls, exactement comme le clavier :
-// c'est la place que prendra l'IA plus tard.
-export class Autopilot implements CarControls {
+// Pilote scripté qui suit la ligne centrale. Il triche par rapport à l'IA : il connaît le tracé,
+// alors que l'IA ne voit que ses capteurs.
+export class Autopilot implements Driver {
     forward = false;
     backward = false;
     left = false;

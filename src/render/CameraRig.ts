@@ -92,6 +92,8 @@ export class CameraRig {
         }
         this.camera.position.copy(this.position);
         this.camera.lookAt(this.target);
+        // Matrices à jour tout de suite (et pas seulement au rendu) : la projection de la bulle d'infos en dépend.
+        this.camera.updateMatrixWorld();
 
         this.camera.fov = fov;
         this.camera.aspect = window.innerWidth / window.innerHeight;

@@ -6,12 +6,14 @@ import {
     Group,
     Mesh,
     MeshStandardMaterial,
+    type Material,
     TorusGeometry
 } from "three";
 import type { Pose } from "../simulation/geometry";
 
 export class CarView {
     readonly object = new Group();
+    private readonly materials = new Set<Material>();
 
     constructor(color = 0x087f9f) {
         const bodyMaterial = new MeshStandardMaterial({color, roughness: 0.35, metalness: 0.2});
@@ -104,6 +106,19 @@ export class CarView {
                 suspension.rotation.y = x * 0.35;
                 body.add(suspension);
             }
+        }
+
+        this.object.traverse(object => {
+            if (object instanceof Mesh) this.materials.add(object.material);
+        });
+    }
+
+    // Voiture éliminée : affichée en transparence. Changer transparent impose de recompiler le matériau (needsUpdate).
+    setRetired(retired: boolean) {
+        for (const material of this.materials) {
+            material.transparent = retired;
+            material.opacity = retired ? 0.2 : 1;
+            material.needsUpdate = true;
         }
     }
 

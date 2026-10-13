@@ -8,6 +8,7 @@ const FEED_SIZE = 6;
 export interface MenuHandlers {
     select(track: TrackDefinition): void;
     start(track: TrackDefinition): void;
+    train(track: TrackDefinition): void;
 }
 
 export class Menu {
@@ -35,7 +36,10 @@ export class Menu {
                 <div class="tracks" role="radiogroup" aria-label="Circuits">
                     ${tracks.map((track, i) => trackCard(track, i)).join("")}
                 </div>
-                <button class="cta" type="button">Lancer la course <kbd>Entrée</kbd></button>
+                <div class="actions">
+                    <button class="cta" type="button" data-action="start">Lancer la course <kbd>Entrée</kbd></button>
+                    <button class="cta cta--secondary" type="button" data-action="train">Entraîner l'IA <kbd>T</kbd></button>
+                </div>
                 <p class="hints"><kbd>Z Q S D</kbd> / <kbd>W A S D</kbd> conduire · <kbd>V</kbd> caméra · <kbd>C</kbd> colliders · <kbd>Échap</kbd> menu</p>
             </section>
             <aside class="feed" aria-live="polite">
@@ -51,7 +55,8 @@ export class Menu {
         this.record = this.root.querySelector("[data-record]")!;
 
         this.cards.forEach((card, i) => card.addEventListener("click", () => this.select(i)));
-        this.root.querySelector(".cta")!.addEventListener("click", () => this.start());
+        this.root.querySelector("[data-action=start]")!.addEventListener("click", () => this.start());
+        this.root.querySelector("[data-action=train]")!.addEventListener("click", () => this.train());
         window.addEventListener("keydown", event => this.onKey(event));
     }
 
@@ -107,6 +112,10 @@ export class Menu {
         this.handlers.start(this.tracks[this.selected]);
     }
 
+    private train() {
+        this.handlers.train(this.tracks[this.selected]);
+    }
+
     private onKey(event: KeyboardEvent) {
         if (!this.visible) return;
         const digit = /^(Digit|Numpad)([1-9])$/.exec(event.code);
@@ -114,6 +123,7 @@ export class Menu {
         else if (event.code === "ArrowDown") this.select((this.selected + 1) % this.tracks.length);
         else if (event.code === "ArrowUp") this.select((this.selected - 1 + this.tracks.length) % this.tracks.length);
         else if (event.code === "Enter" || event.code === "NumpadEnter") this.start();
+        else if (event.code === "KeyT") this.train();
     }
 }
 

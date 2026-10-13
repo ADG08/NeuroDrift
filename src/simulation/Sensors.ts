@@ -1,4 +1,5 @@
-import { raySegmentDistance, type Pose, type Segment } from "./geometry";
+import { raySegmentDistance, type Pose } from "./geometry";
+import type { Track } from "./Track";
 
 // Angles des rayons par rapport à l'avant de la voiture, positifs vers la gauche (comme le braquage).
 export const SENSOR_ANGLES = [-90, -45, -20, 0, 20, 45, 90].map(degrees => (degrees * Math.PI) / 180);
@@ -9,11 +10,16 @@ export const SENSOR_RANGE = 60;
 export class Sensors {
     readonly distances = SENSOR_ANGLES.map(() => SENSOR_RANGE);
 
-    update(pose: Pose, walls: Segment[]) {
+    update(pose: Pose, track: Track) {
         SENSOR_ANGLES.forEach((offset, i) => {
             const angle = pose.rotation + offset;
             const dirX = Math.sin(angle);
             const dirZ = Math.cos(angle);
+
+            // Seuls les murs proches du rayon sont testés : ceux du rectangle qui l'englobe.
+            const endX = pose.x + dirX * SENSOR_RANGE;
+            const endZ = pose.z + dirZ * SENSOR_RANGE;
+            const walls = track.wallsInBox(Math.min(pose.x, endX), Math.min(pose.z, endZ), Math.max(pose.x, endX), Math.max(pose.z, endZ));
 
             let nearest = SENSOR_RANGE;
             for (const wall of walls) {
