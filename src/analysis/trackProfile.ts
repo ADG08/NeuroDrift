@@ -29,19 +29,31 @@ export interface TrackProfile {
 
 export function buildTrackProfile(track: Track, car: Car): TrackProfile {
     const n = track.centerline.length;
-    const segmentLength = track.centerline.map((p, i) => distance(p, track.centerline[track.wrapIndex(i + 1)]));
-
-    // Courbure signée : variation du cap divisée par la distance parcourue. Positive = virage à gauche.
-    const curvature = track.centerline.map((_, i) => {
-        const turn = normalizeAngle(track.headingAt(i + CURVATURE_WINDOW) - track.headingAt(i - CURVATURE_WINDOW));
-        return turn / (2 * CURVATURE_WINDOW * segmentLength[i]);
-    });
-
+    const segmentLength = segmentLengths(track);
+    const curvature = trackCurvature(track);
     const idealSpeed = speedProfile(curvature, segmentLength, car);
     let idealLapTime = 0;
     for (let i = 0; i < n; i++) idealLapTime += segmentLength[i] / ((idealSpeed[i] + idealSpeed[(i + 1) % n]) / 2);
 
     return {corners: findCorners(curvature), idealSpeed, segmentLength, idealLapTime};
+}
+
+// Les virages seuls, sans calcul de vitesse : utile pour habiller le circuit (panneaux, vibreurs).
+export function detectCorners(track: Track): Corner[] {
+    return findCorners(trackCurvature(track));
+}
+
+function segmentLengths(track: Track): number[] {
+    return track.centerline.map((p, i) => distance(p, track.centerline[track.wrapIndex(i + 1)]));
+}
+
+// Courbure signée : variation du cap divisée par la distance parcourue. Positive = virage à gauche.
+function trackCurvature(track: Track): number[] {
+    const segmentLength = segmentLengths(track);
+    return track.centerline.map((_, i) => {
+        const turn = normalizeAngle(track.headingAt(i + CURVATURE_WINDOW) - track.headingAt(i - CURVATURE_WINDOW));
+        return turn / (2 * CURVATURE_WINDOW * segmentLength[i]);
+    });
 }
 
 // Simulation de tour « point-masse », la méthode classique des ingénieurs en sport auto :

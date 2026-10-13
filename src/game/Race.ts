@@ -1,4 +1,4 @@
-import { Group, Line, Mesh } from "three";
+import { Group, Line, Mesh, Texture } from "three";
 import { CarView } from "../render/CarView";
 import { DebugView } from "../render/DebugView";
 import { SkidMarks } from "../render/SkidMarks";
@@ -149,7 +149,10 @@ export class Race {
         this.group.traverse(object => {
             if (object instanceof Mesh || object instanceof Line) {
                 object.geometry.dispose();
-                for (const material of [object.material].flat()) material.dispose();
+                for (const material of [object.material].flat()) {
+                    if ("map" in material && material.map instanceof Texture) material.map.dispose();
+                    material.dispose();
+                }
             }
         });
     }

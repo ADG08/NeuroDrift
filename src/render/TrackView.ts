@@ -13,6 +13,7 @@ import {
     Vector3,
 } from "three";
 import type { Track } from "../simulation/Track";
+import { createTrackDecor } from "./TrackDecor";
 
 const WALL_HEIGHT = 1;
 const WALL_THICKNESS = 0.5;
@@ -25,7 +26,7 @@ export class TrackView {
     readonly group = new Group();
 
     constructor(track: Track) {
-        this.group.add(createAsphalt(track), createStartLine(track), createWalls(track));
+        this.group.add(createAsphalt(track), createStartLine(track), createWalls(track), createTrackDecor(track));
     }
 }
 
