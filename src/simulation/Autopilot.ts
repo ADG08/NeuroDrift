@@ -5,6 +5,8 @@ import type { Progress } from "./Progress";
 import type { Track } from "./Track";
 
 const STEER_DEADZONE = 0.04;
+// On vise l'orientation qu'aura la voiture dans ce délai : sans anticipation, l'inertie fait dépasser la trajectoire.
+const YAW_ANTICIPATION = 0.25;
 const MIN_SPEED_RATIO = 0.45;
 const BRAKE_MARGIN = 2;
 
@@ -36,7 +38,7 @@ export class Autopilot implements Driver {
         const {topSpeed, lookahead, line} = this.settings;
 
         const target = this.track.pointAt(this.progress.index + lookahead, line);
-        const steerError = normalizeAngle(headingTo(car, target) - car.rotation);
+        const steerError = normalizeAngle(headingTo(car, target) - (car.rotation + car.yawRate * YAW_ANTICIPATION));
         this.left = steerError > STEER_DEADZONE;
         this.right = steerError < -STEER_DEADZONE;
 

@@ -138,7 +138,7 @@ export class Race {
     sync() {
         for (const entrant of this.entrants) {
             const pose = entrant.simulation.renderPose();
-            entrant.view.sync(pose);
+            entrant.view.sync(pose, entrant.car.steerAngle);
             this.skidMarks.add(entrant, pose, entrant.car.isDrifting && !entrant.retired);
         }
         this.debugView.sync();

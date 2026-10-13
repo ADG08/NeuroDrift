@@ -45,7 +45,7 @@ export function buildTrackProfile(track: Track, car: Car): TrackProfile {
 }
 
 // Simulation de tour « point-masse », la méthode classique des ingénieurs en sport auto :
-// 1. dans chaque virage, la vitesse max que tiennent les pneus et la direction ;
+// 1. dans chaque virage, la vitesse max que tiennent les pneus ;
 // 2. passe avant : on ne peut pas accélérer plus vite que le moteur ;
 // 3. passe arrière : on ne peut pas freiner plus fort que les freins (c'est ce qui place les points de freinage).
 function speedProfile(curvature: number[], segmentLength: number[], car: Car): number[] {
@@ -68,14 +68,8 @@ function speedProfile(curvature: number[], segmentLength: number[], car: Car): n
 
 function cornerSpeedLimit(curvature: number, car: Car): number {
     if (curvature < 1e-6) return car.maxSpeed;
-    const radius = 1 / curvature;
     // Pneus : l'accélération latérale v² / R ne doit pas dépasser l'adhérence.
-    const gripLimit = Math.sqrt(car.grip * radius);
-    // Direction : le nez doit pouvoir tourner à v / R, alors que Car limite à turnSpeed / (1 + v / steeringFalloff).
-    // v / R = turnSpeed / (1 + v / F)  ⇔  v² / F + v - R · turnSpeed = 0, dont on garde la racine positive.
-    const F = car.steeringFalloff;
-    const steeringLimit = ((Math.sqrt(1 + (4 * radius * car.turnSpeed) / F) - 1) * F) / 2;
-    return Math.min(car.maxSpeed, gripLimit, steeringLimit);
+    return Math.min(car.maxSpeed, Math.sqrt(Math.min(car.frontGrip, car.rearGrip) / curvature));
 }
 
 function findCorners(curvature: number[]): Corner[] {

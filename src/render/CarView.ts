@@ -1,110 +1,60 @@
 import {
     BoxGeometry,
     Color,
-    ConeGeometry,
     CylinderGeometry,
     Group,
     Mesh,
     MeshStandardMaterial,
     type Material,
-    TorusGeometry
 } from "three";
 import type { Pose } from "../simulation/geometry";
+
+// Coupé de drift, propulsion à moteur avant. Dimensions en mètres : 4,4 m de long pour 1,9 m de large,
+// ce qui colle au cercle de collision de 2 m de rayon.
+const WHEEL_RADIUS = 0.36;
+const WHEEL_WIDTH = 0.28;
+// Position des roues dans le repère de la voiture (même empattement que Car.axleDistance).
+export const AXLE_OFFSET = 1.3;
+export const HALF_TRACK = 0.82;
 
 export class CarView {
     readonly object = new Group();
     private readonly materials = new Set<Material>();
+    // Pivots des roues avant : ils tournent avec l'angle de braquage.
+    private readonly frontWheels: Group[] = [];
 
     constructor(color = 0x087f9f) {
-        const bodyMaterial = new MeshStandardMaterial({color, roughness: 0.35, metalness: 0.2});
-        const darkMaterial = new MeshStandardMaterial({color: 0x111820});
-        const orangeMaterial = new MeshStandardMaterial({color: 0xe87922});
-        const body = new Mesh(new BoxGeometry(1.55, 0.4, 3.2), bodyMaterial);
-        // Le modèle va de -2,5 (aileron arrière) à +4,8 (aileron avant) : on le recule pour que
-        // son centre soit sur le centre du cercle de collision, et on le pose sur ses roues.
-        body.position.set(0, 0.63, -1.1);
-        this.object.add(body);
+        const paint = new MeshStandardMaterial({color, roughness: 0.3, metalness: 0.4});
+        const darkPaint = new MeshStandardMaterial({color: new Color(color).multiplyScalar(0.6), roughness: 0.4, metalness: 0.4});
+        const glass = new MeshStandardMaterial({color: 0x10161d, roughness: 0.1, metalness: 0.6});
+        const trim = new MeshStandardMaterial({color: 0x14181d, roughness: 0.8});
+        const tire = new MeshStandardMaterial({color: 0x15171a, roughness: 0.9});
+        const rim = new MeshStandardMaterial({color: 0xb8c0c8, roughness: 0.3, metalness: 0.8});
+        const headlight = new MeshStandardMaterial({color: 0xfff4d6, emissive: 0xfff4d6, emissiveIntensity: 0.6});
+        const taillight = new MeshStandardMaterial({color: 0xd8333a, emissive: 0xd8333a, emissiveIntensity: 0.5});
 
-        const floor = new Mesh(new BoxGeometry(2.2, 0.12, 4.9), darkMaterial);
-        floor.position.y = -0.22;
-        body.add(floor);
-
-        const nose = new Mesh(new ConeGeometry(0.7, 3.8, 4), bodyMaterial);
-        nose.rotation.x = Math.PI / 2;
-        nose.position.set(0, 0.05, 2.95);
-        body.add(nose);
-
-        const sidepodMaterial = new MeshStandardMaterial({color: new Color(color).multiplyScalar(0.75), roughness: 0.35, metalness: 0.2});
-        for (const x of [-0.85, 0.85]) {
-            const sidepod = new Mesh(new BoxGeometry(0.7, 0.62, 1.9), sidepodMaterial);
-            sidepod.position.set(x, 0.12, -0.45);
-            body.add(sidepod);
-
-            const sidepodDetail = new Mesh(new BoxGeometry(0.76, 0.08, 0.75), orangeMaterial);
-            sidepodDetail.position.set(x, 0.45, -0.2);
-            body.add(sidepodDetail);
+        // Caisse basse, capot long et cabine reculée : la silhouette d'une propulsion.
+        this.add(new BoxGeometry(1.9, 0.5, 4.4), paint, 0, 0.55, 0);
+        this.add(new BoxGeometry(1.86, 0.12, 1.5), darkPaint, 0, 0.86, 1.25);               // capot
+        this.add(new BoxGeometry(1.6, 0.48, 1.9), glass, 0, 1.04, -0.35);                  // cabine vitrée
+        this.add(new BoxGeometry(1.5, 0.08, 1.4), paint, 0, 1.3, -0.4);                    // toit
+        this.add(new BoxGeometry(1.94, 0.22, 4.5), trim, 0, 0.32, 0);                      // bas de caisse et pare-chocs
+        this.add(new BoxGeometry(1.7, 0.06, 0.4), trim, 0, 1.2, -2.05);                     // aileron
+        for (const x of [-0.6, 0.6]) {
+            this.add(new BoxGeometry(0.06, 0.32, 0.12), trim, x, 1.0, -2.0);               // pieds d'aileron
+            this.add(new BoxGeometry(0.42, 0.12, 0.05), headlight, x, 0.62, 2.2);
+            this.add(new BoxGeometry(0.46, 0.12, 0.05), taillight, x, 0.66, -2.2);
         }
 
-        const cockpit = new Mesh(
-            new BoxGeometry(0.72, 0.2, 1.15),
-            darkMaterial
-        );
-        cockpit.position.set(0, 0.4, -0.2);
-        body.add(cockpit);
-
-        const halo = new Mesh(
-            new TorusGeometry(0.45, 0.06, 4, 8),
-            darkMaterial
-        );
-        halo.rotation.x = Math.PI / 2;
-        halo.position.set(0, 0.55, -0.2);
-        body.add(halo);
-
-        const wheelGeometry = new CylinderGeometry(0.58, 0.58, 0.42, 10);
-        for (const x of [-1, 1]) {
-            for (const z of [-1.55, 1.55]) {
-                const wheel = new Mesh(wheelGeometry, darkMaterial);
-                wheel.rotation.z = Math.PI / 2;
-                wheel.position.set(x * 1.25, 0, z);
-                body.add(wheel);
-
-                const rim = new Mesh(new TorusGeometry(0.3, 0.06, 4, 8), orangeMaterial);
-                rim.rotation.y = Math.PI / 2;
-                rim.position.set(x * 1.47, 0, z);
-                body.add(rim);
-            }
-        }
-
-        const wingMaterial = darkMaterial;
-        const frontWing = new Mesh(new BoxGeometry(3.35, 0.12, 0.22), wingMaterial);
-        frontWing.position.set(0, -0.05, 4.65);
-        body.add(frontWing);
-
-        const frontWingLower = new Mesh(new BoxGeometry(2.85, 0.1, 0.18), orangeMaterial);
-        frontWingLower.position.set(0, -0.15, 4.35);
-        body.add(frontWingLower);
-
-        const rearWing = new Mesh(new BoxGeometry(3.1, 0.16, 0.25), orangeMaterial);
-        rearWing.position.set(0, 0.8, -2.45);
-        body.add(rearWing);
-
-        const rearWingLower = new Mesh(new BoxGeometry(2.7, 0.12, 0.2), darkMaterial);
-        rearWingLower.position.set(0, 0.55, -2.15);
-        body.add(rearWingLower);
-
-        const rearWingSupport = new Mesh(new BoxGeometry(0.12, 0.9, 0.12), darkMaterial);
-        for (const x of [-0.7, 0.7]) {
-            rearWingSupport.position.set(x, 0.35, -2.25);
-            body.add(rearWingSupport.clone());
-        }
-
-        const suspensionMaterial = new MeshStandardMaterial({color: 0x8b9499});
-        for (const z of [-1.55, 1.55]) {
-            for (const x of [-1, 1]) {
-                const suspension = new Mesh(new BoxGeometry(0.08, 0.08, 0.95), suspensionMaterial);
-                suspension.position.set(x * 1.05, 0.18, z);
-                suspension.rotation.y = x * 0.35;
-                body.add(suspension);
+        const wheelGeometry = new CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, WHEEL_WIDTH, 16).rotateZ(Math.PI / 2);
+        const rimGeometry = new CylinderGeometry(WHEEL_RADIUS * 0.6, WHEEL_RADIUS * 0.6, WHEEL_WIDTH + 0.02, 10).rotateZ(Math.PI / 2);
+        for (const z of [AXLE_OFFSET, -AXLE_OFFSET]) {
+            for (const x of [-HALF_TRACK, HALF_TRACK]) {
+                const wheel = new Group();
+                wheel.position.set(x, WHEEL_RADIUS, z);
+                wheel.add(new Mesh(wheelGeometry, tire), new Mesh(rimGeometry, rim));
+                this.object.add(wheel);
+                if (z > 0) this.frontWheels.push(wheel);
             }
         }
 
@@ -122,10 +72,16 @@ export class CarView {
         }
     }
 
-    // La vue ne lit plus la voiture directement : elle affiche la pose interpolée fournie par la Simulation.
-    sync(pose: Pose) {
-        this.object.position.setX(pose.x)
-        this.object.position.setZ(pose.z)
-        this.object.rotation.y = pose.rotation
+    // La vue affiche la pose interpolée fournie par la Simulation, et braque les roues avant.
+    sync(pose: Pose, steerAngle: number) {
+        this.object.position.set(pose.x, 0, pose.z);
+        this.object.rotation.y = pose.rotation;
+        for (const wheel of this.frontWheels) wheel.rotation.y = steerAngle;
+    }
+
+    private add(geometry: BoxGeometry, material: Material, x: number, y: number, z: number) {
+        const mesh = new Mesh(geometry, material);
+        mesh.position.set(x, y, z);
+        this.object.add(mesh);
     }
 }

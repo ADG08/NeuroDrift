@@ -6,7 +6,7 @@ const HEIGHT = 124;
 const NODE_RADIUS = 4;
 // Abscisse de chaque colonne de neurones (entrées, couche cachée, sorties).
 const COLUMN_X = [34, 98, 150];
-const INPUT_LABELS = ["−90°", "−45°", "−20°", "0°", "20°", "45°", "90°", "vit.", "glisse"];
+const INPUT_LABELS = ["−90°", "−45°", "−20°", "0°", "20°", "45°", "90°", "vit.", "glisse", "rot."];
 const OUTPUT_LABELS = ["Gaz", "Frein", "Gauche", "Droite"];
 const POSITIVE = "#4cbb6c";
 const NEGATIVE = "#e05252";

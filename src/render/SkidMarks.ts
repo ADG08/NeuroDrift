@@ -1,13 +1,12 @@
 import { InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3 } from "three";
 import { distance, type Point, type Pose } from "../simulation/geometry";
+import { AXLE_OFFSET, HALF_TRACK } from "./CarView";
 
 const MAX_MARKS = 4000;
 const MARK_SPACING = 0.6;
 const MARK_WIDTH = 0.4;
 const MARK_Y = 0.07;
-// Position des roues arrière dans le repère de la voiture (voir CarView).
-const REAR_AXLE = -2.65;
-const HALF_TRACK = 1.25;
+const REAR_AXLE = -AXLE_OFFSET;
 
 // Traces de pneus laissées au sol par les voitures qui glissent.
 // Un seul InstancedMesh pour toutes les traces ; quand il est plein, les plus anciennes sont réutilisées.

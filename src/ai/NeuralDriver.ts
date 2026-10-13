@@ -3,8 +3,8 @@ import type { Driver } from "../simulation/Driver";
 import { SENSOR_ANGLES, SENSOR_RANGE, type Sensors } from "../simulation/Sensors";
 import type { NeuralNetwork } from "./NeuralNetwork";
 
-// Entrées : une par capteur, la vitesse et la glisse. Une couche cachée. Sorties : avancer, freiner, gauche, droite.
-export const NETWORK_LAYERS = [SENSOR_ANGLES.length + 2, 8, 4];
+// Entrées : une par capteur, la vitesse, la glisse et la rotation. Une couche cachée. Sorties : avancer, freiner, gauche, droite.
+export const NETWORK_LAYERS = [SENSOR_ANGLES.length + 3, 8, 4];
 // Une glisse latérale de cette vitesse vaut 1 en entrée du réseau.
 const LATERAL_SCALE = 20;
 
@@ -28,7 +28,7 @@ export class NeuralDriver implements Driver {
         // Entrées ramenées à des ordres de grandeur proches de 1 : sinon une entrée en dizaines
         // écraserait les autres dans les sommes pondérées.
         const inputs = sensors.distances.map(distance => distance / SENSOR_RANGE);
-        inputs.push(car.forwardSpeed / car.maxSpeed, car.lateralSpeed / LATERAL_SCALE);
+        inputs.push(car.forwardSpeed / car.maxSpeed, car.lateralSpeed / LATERAL_SCALE, car.yawRate);
 
         const [forward, backward, left, right] = this.network.predict(inputs);
         // tanh renvoie une valeur dans ]-1, 1[ : positive = touche enfoncée.

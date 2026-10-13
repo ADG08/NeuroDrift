@@ -3,17 +3,17 @@ import { normalizeAngle, type Pose } from "../simulation/geometry";
 
 const BASE_FOV = 70;
 
-const CHASE_DISTANCE = 13;
-const CHASE_HEIGHT = 8;
-const CHASE_LOOK_AHEAD = 12;
+const CHASE_DISTANCE = 9;
+const CHASE_HEIGHT = 5;
+const CHASE_LOOK_AHEAD = 10;
 // Vitesse à laquelle la caméra rattrape l'orientation de la voiture dans les virages.
 const CHASE_TURN_STIFFNESS = 6;
 
 const OVERHEAD_HEIGHT = 90;
 const OVERHEAD_STIFFNESS = 5;
 
-const SHOWCASE_RADIUS = 26;
-const SHOWCASE_HEIGHT = 10;
+const SHOWCASE_RADIUS = 15;
+const SHOWCASE_HEIGHT = 6;
 const SHOWCASE_SPIN = 0.12;
 const SHOWCASE_STIFFNESS = 1.5;
 // En menu, le centre de l'image est décalé vers la droite pour ne pas cacher la voiture derrière le panneau.
