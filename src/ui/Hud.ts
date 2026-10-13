@@ -15,6 +15,7 @@ export class Hud {
     private readonly drift: HTMLElement;
     private readonly toast: HTMLElement;
     private toastTimer = 0;
+    private totalLaps = 1;
 
     constructor(container: HTMLElement) {
         this.root = document.createElement("div");
@@ -44,8 +45,9 @@ export class Hud {
         this.toast = this.root.querySelector(".hud__toast")!;
     }
 
-    show(trackName: string) {
+    show(trackName: string, totalLaps: number) {
         this.trackName.textContent = trackName;
+        this.totalLaps = totalLaps;
         this.toast.classList.remove("hud__toast--visible");
         this.root.hidden = false;
     }
@@ -55,7 +57,7 @@ export class Hud {
     }
 
     update(player: Entrant, raceTime: number) {
-        this.lap.textContent = String(player.laps + 1);
+        this.lap.textContent = `${Math.min(player.laps + 1, this.totalLaps)} / ${this.totalLaps}`;
         this.current.textContent = formatLapTime(player.lapStartedAt === null ? null : raceTime - player.lapStartedAt);
         this.best.textContent = formatLapTime(player.bestLap);
         this.speed.textContent = String(Math.round(Math.abs(player.car.forwardSpeed) * MS_TO_KMH));

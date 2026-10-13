@@ -3,8 +3,9 @@ import type { CarControls } from "./CarControls";
 import { closestPointOnSegment, distance, normalizeAngle, type Pose, type Segment } from "./geometry";
 import type { Track } from "./Track";
 
-// Vitesse conservée à chaque pas où l'on frotte un mur : après 1 s de frottement (120 pas), il en reste 30 %.
-const WALL_GRIP = 0.99;
+// Vitesse conservée à chaque pas où l'on frotte un mur : après 1 s de frottement (120 pas), il en reste 9 %.
+// Assez fort pour que longer un mur ne soit jamais plus rapide que de rester sur la piste.
+const WALL_GRIP = 0.98;
 // Pas de temps fixe : à la vitesse max (100), la voiture avance de 0,83 par pas, moins que son rayon.
 const FIXED_STEP = 1 / 120;
 

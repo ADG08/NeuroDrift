@@ -1,17 +1,24 @@
 import { NeuralDriver } from "../ai/NeuralDriver";
+import { analyzeRace } from "../analysis/coach";
+import { Telemetry } from "../analysis/Telemetry";
+import { buildTrackProfile, type TrackProfile } from "../analysis/trackProfile";
 import { InputState } from "../input/InputState";
 import type { Stage } from "../render/Stage";
 import type { Pose } from "../simulation/geometry";
 import { TRACKS, type TrackDefinition } from "../simulation/tracks";
+import { personalBest, racesOn, saveRace } from "../storage";
 import { CarTooltip } from "../ui/CarTooltip";
 import { Hud } from "../ui/Hud";
 import { Menu } from "../ui/Menu";
+import { ReportScreen } from "../ui/ReportScreen";
 import { TrainingHud } from "../ui/TrainingHud";
 import { FocusTracker } from "./FocusTracker";
 import { Race, type BotProfile, type Entrant } from "./Race";
 import { Training } from "./Training";
 
 const PLAYER_COLOR = 0x087f9f;
+// Nombre de tours d'une course du joueur, avant le récap.
+const RACE_LAPS = 3;
 // En menu, la caméra change de pilote à intervalle régulier, ou dès qu'un record tombe.
 const FEATURE_DURATION = 12;
 // Vitesses de l'entraînement (touches 1 à 4) : nombre de pas de simulation par image.
@@ -28,7 +35,8 @@ const BOTS: BotProfile[] = [
 
 type Screen =
     | {kind: "menu"}
-    | {kind: "race"; player: Entrant}
+    | {kind: "race"; player: Entrant; telemetry: Telemetry; profile: TrackProfile}
+    | {kind: "report"; player: Entrant}
     | {kind: "training"; training: Training};
 
 // Enchaîne les écrans : le menu (course de pilotes automatiques en fond), la course du joueur et l'entraînement de l'IA.
@@ -39,6 +47,7 @@ export class Game {
     private readonly hud: Hud;
     private readonly trainingHud: TrainingHud;
     private readonly carTooltip: CarTooltip;
+    private readonly report: ReportScreen;
     private readonly focus = new FocusTracker();
     private screen: Screen = {kind: "menu"};
     private race!: Race;
@@ -59,6 +68,10 @@ export class Game {
         this.hud = new Hud(ui);
         this.trainingHud = new TrainingHud(ui);
         this.carTooltip = new CarTooltip(ui);
+        this.report = new ReportScreen(ui, {
+            replay: () => this.startRace(this.race.definition),
+            menu: () => this.openMenu(this.race.definition),
+        });
         window.addEventListener("keydown", event => this.onKey(event));
         this.openMenu(TRACKS[0]);
     }
@@ -67,6 +80,12 @@ export class Game {
         this.elapsed += dt;
         const rig = this.stage.cameraRig;
         const {screen} = this;
+
+        if (screen.kind === "report") {
+            // Course figée : la caméra tourne lentement autour de la voiture pendant le récap.
+            rig.showcase(screen.player.simulation.renderPose(), this.elapsed, dt);
+            return;
+        }
 
         if (screen.kind === "training") {
             const {training} = screen;
@@ -100,9 +119,16 @@ export class Game {
         this.race.sync();
 
         if (screen.kind === "race") {
-            for (const event of events) if (event.entrant === screen.player) this.hud.announce(event);
-            this.hud.update(screen.player, this.race.time);
-            this.follow(screen.player.simulation.renderPose(), dt);
+            const {player, telemetry} = screen;
+            telemetry.record(player, this.race.time);
+            for (const event of events) {
+                if (event.entrant !== player) continue;
+                this.hud.announce(event);
+                if (event.type === "lap") telemetry.completeLap(event.time);
+            }
+            this.hud.update(player, this.race.time);
+            this.follow(player.simulation.renderPose(), dt);
+            if (telemetry.laps.length >= RACE_LAPS) this.finishRace(screen);
         } else {
             for (const event of events) {
                 this.menu.addEvent(event, this.race.time);
@@ -135,10 +161,24 @@ export class Game {
     private startRace(track: TrackDefinition) {
         const race = new Race(track);
         const player = race.addPlayer("Toi", PLAYER_COLOR, this.input);
+        const profile = buildTrackProfile(race.track, player.car);
 
-        this.load(race, {kind: "race", player});
+        this.load(race, {kind: "race", player, telemetry: new Telemetry(), profile});
         this.overheadView = false;
-        this.hud.show(track.name);
+        this.hud.show(track.name, RACE_LAPS);
+    }
+
+    private finishRace({player, telemetry, profile}: {player: Entrant; telemetry: Telemetry; profile: TrackProfile}) {
+        const report = analyzeRace(telemetry, profile);
+        if (report === null) return;
+
+        const {id, name} = this.race.definition;
+        const previousBest = personalBest(id);
+        saveRace(id, report.bestLap);
+
+        this.screen = {kind: "report", player};
+        this.hud.hide();
+        this.report.show(report, {trackName: name, centerline: this.race.track.centerline, history: racesOn(id), previousBest});
     }
 
     private startTraining(track: TrackDefinition) {
@@ -167,6 +207,7 @@ export class Game {
         this.hud.hide();
         this.trainingHud.hide();
         this.carTooltip.hide();
+        this.report.hide();
     }
 
     // Plan de coupe vers une autre voiture, comme une réalisation TV.
@@ -184,7 +225,9 @@ export class Game {
         }
         if (screen.kind === "menu") return;
 
-        if (event.code === "KeyV") {
+        if (screen.kind === "report" && event.code === "Enter") {
+            this.startRace(this.race.definition);
+        } else if (event.code === "KeyV") {
             this.overheadView = !this.overheadView;
             this.stage.cameraRig.cut();
         } else if (event.code === "Escape") {
