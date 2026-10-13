@@ -40,7 +40,7 @@ export class Menu {
                     <button class="cta" type="button" data-action="start">Lancer la course <kbd>Entrée</kbd></button>
                     <button class="cta cta--secondary" type="button" data-action="train">Entraîner l'IA <kbd>T</kbd></button>
                 </div>
-                <p class="hints"><kbd>Z Q S D</kbd> / <kbd>W A S D</kbd> conduire · <kbd>V</kbd> caméra · <kbd>C</kbd> colliders · <kbd>Échap</kbd> menu</p>
+                <p class="hints"><kbd>Z Q S D</kbd> / <kbd>W A S D</kbd> conduire · <kbd>Espace</kbd> frein à main · <kbd>V</kbd> caméra · <kbd>C</kbd> colliders · <kbd>Échap</kbd> menu</p>
             </section>
             <aside class="feed" aria-live="polite">
                 <h2 class="feed__title">En direct · <span data-track></span></h2>

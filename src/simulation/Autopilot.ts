@@ -44,7 +44,7 @@ export class Autopilot implements Driver {
         const farTarget = this.track.pointAt(this.progress.index + lookahead * 3, line);
         const turn = Math.abs(normalizeAngle(headingTo(car, farTarget) - car.rotation));
         const speedLimit = topSpeed * Math.max(1 - turn, MIN_SPEED_RATIO);
-        this.forward = car.currentSpeed < speedLimit;
-        this.backward = car.currentSpeed > speedLimit + BRAKE_MARGIN;
+        this.forward = car.forwardSpeed < speedLimit;
+        this.backward = car.forwardSpeed > speedLimit + BRAKE_MARGIN;
     }
 }

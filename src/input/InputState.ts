@@ -5,6 +5,7 @@ export class InputState implements CarControls{
     backward: boolean = false;
     left: boolean = false;
     right: boolean = false;
+    handbrake: boolean = false;
 
     constructor() {
         window.addEventListener('keydown', (event: KeyboardEvent) => {
@@ -28,6 +29,9 @@ export class InputState implements CarControls{
                 break
             case 'KeyD':
                 this.right = pressed
+                break
+            case 'Space':
+                this.handbrake = pressed
                 break
         }
     }

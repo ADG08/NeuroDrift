@@ -62,7 +62,7 @@ export class Simulation {
         this.inContact = hitWall;
     }
 
-    // Si la voiture chevauche le mur : la replace à `radius` du mur et ne garde que la vitesse parallèle au mur.
+    // Si la voiture chevauche le mur : la replace à `radius` du mur et retire la vitesse qui rentre dedans.
     // Renvoie true s'il y avait contact.
     private collideWith(wall: Segment): boolean {
         const car = this.car;
@@ -76,11 +76,12 @@ export class Simulation {
         car.x = closest.x + normalX * car.radius;
         car.z = closest.z + normalZ * car.radius;
 
-        // Produit scalaire direction · normale : -1 = droit dans le mur, 0 = parallèle au mur.
-        const impact = (Math.sin(car.rotation) * normalX + Math.cos(car.rotation) * normalZ) * Math.sign(car.currentSpeed);
-        if (impact < 0) {
-            // On retire la composante qui rentre dans le mur : il reste la composante parallèle, de norme √(1 - impact²).
-            car.currentSpeed *= Math.sqrt(1 - impact * impact) * WALL_GRIP;
+        // Produit scalaire vitesse · normale : négatif si la voiture va vers le mur.
+        const intoWall = car.velocityX * normalX + car.velocityZ * normalZ;
+        if (intoWall < 0) {
+            // On retire cette composante (v - n·(v·n)) : il reste la vitesse parallèle au mur, freinée par le frottement.
+            car.velocityX = (car.velocityX - normalX * intoWall) * WALL_GRIP;
+            car.velocityZ = (car.velocityZ - normalZ * intoWall) * WALL_GRIP;
         }
         return true;
     }

@@ -326,6 +326,16 @@ kbd {
     color: var(--muted);
 }
 
+.hud__drift {
+    position: absolute;
+    right: 24px;
+    bottom: 76px;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
 .hud__hints {
     position: absolute;
     left: 24px;

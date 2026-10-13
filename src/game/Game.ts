@@ -83,7 +83,7 @@ export class Game {
             this.follow(pose, dt);
             const {driver} = focused;
             this.carTooltip.update(pose, this.stage.camera, {
-                speed: focused.car.currentSpeed,
+                speed: focused.car.forwardSpeed,
                 position: training.position(focused),
                 // Intention brute du réseau (avant le seuil) ; à défaut, la commande tout-ou-rien.
                 throttle: driver instanceof NeuralDriver ? driver.throttle : Number(focused.controls.forward),

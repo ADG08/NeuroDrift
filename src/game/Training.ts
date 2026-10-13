@@ -95,7 +95,7 @@ export class Training {
         }
         if (next === null) return null;
         const meters = this.toMeters(traveled - next.progress.traveled);
-        return meters / Math.max(Math.abs(next.car.currentSpeed), 1);
+        return meters / Math.max(Math.abs(next.car.forwardSpeed), 1);
     }
 
     // Avance la simulation ; renvoie le bilan de la génération quand elle se termine.

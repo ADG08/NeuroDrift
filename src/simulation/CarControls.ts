@@ -3,4 +3,5 @@ export interface CarControls {
     backward: boolean;
     left: boolean;
     right: boolean;
+    handbrake?: boolean;   // fait décrocher les pneus pour lancer une glisse
 }

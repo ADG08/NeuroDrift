@@ -1,6 +1,7 @@
 import { Group, Line, Mesh } from "three";
 import { CarView } from "../render/CarView";
 import { DebugView } from "../render/DebugView";
+import { SkidMarks } from "../render/SkidMarks";
 import { TrackView } from "../render/TrackView";
 import { Autopilot, type AutopilotSettings } from "../simulation/Autopilot";
 import { Car } from "../simulation/Car";
@@ -49,6 +50,7 @@ export class Race {
     readonly track: Track;
     readonly group = new Group();
     readonly debugView: DebugView;
+    readonly skidMarks = new SkidMarks();
     readonly entrants: Entrant[] = [];
     time = 0;
     record: number | null = null;
@@ -59,7 +61,7 @@ export class Race {
 
         const trackView = new TrackView(this.track);
         this.debugView = new DebugView(this.track);
-        this.group.add(trackView.group, this.debugView.group);
+        this.group.add(trackView.group, this.skidMarks.mesh, this.debugView.group);
     }
 
     addPlayer(name: string, color: number, controls: CarControls): Entrant {
@@ -84,6 +86,7 @@ export class Race {
     // Replace tous les concurrents sur leur ligne de départ, sans reconstruire la scène.
     restart() {
         this.time = 0;
+        this.skidMarks.clear();
         this.record = null;
         for (const entrant of this.entrants) {
             const {car, startIndex} = entrant;
@@ -91,7 +94,7 @@ export class Race {
             car.x = start.x;
             car.z = start.z;
             car.rotation = this.track.headingAt(startIndex);
-            car.currentSpeed = 0;
+            car.stop();
             entrant.simulation.reset();
             entrant.progress.reset(startIndex);
             entrant.sensors.update(car, this.track);
@@ -133,7 +136,11 @@ export class Race {
     }
 
     sync() {
-        for (const {view, simulation} of this.entrants) view.sync(simulation.renderPose());
+        for (const entrant of this.entrants) {
+            const pose = entrant.simulation.renderPose();
+            entrant.view.sync(pose);
+            this.skidMarks.add(entrant, pose, entrant.car.isDrifting && !entrant.retired);
+        }
         this.debugView.sync();
     }
 

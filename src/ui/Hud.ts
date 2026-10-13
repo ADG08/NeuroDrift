@@ -12,6 +12,7 @@ export class Hud {
     private readonly current: HTMLElement;
     private readonly best: HTMLElement;
     private readonly speed: HTMLElement;
+    private readonly drift: HTMLElement;
     private readonly toast: HTMLElement;
     private toastTimer = 0;
 
@@ -29,8 +30,9 @@ export class Hud {
                 </dl>
             </div>
             <div class="hud__speed"><span data-speed>0</span><small>km/h</small></div>
+            <p class="hud__drift" hidden></p>
             <p class="hud__toast" role="status"></p>
-            <p class="hints hud__hints"><kbd>V</kbd> caméra · <kbd>C</kbd> colliders · <kbd>Échap</kbd> menu</p>`;
+            <p class="hints hud__hints"><kbd>Espace</kbd> frein à main · <kbd>V</kbd> caméra · <kbd>C</kbd> colliders · <kbd>Échap</kbd> menu</p>`;
         container.appendChild(this.root);
 
         this.trackName = this.root.querySelector(".hud__track")!;
@@ -38,6 +40,7 @@ export class Hud {
         this.current = this.root.querySelector("[data-current]")!;
         this.best = this.root.querySelector("[data-best]")!;
         this.speed = this.root.querySelector("[data-speed]")!;
+        this.drift = this.root.querySelector(".hud__drift")!;
         this.toast = this.root.querySelector(".hud__toast")!;
     }
 
@@ -55,7 +58,11 @@ export class Hud {
         this.lap.textContent = String(player.laps + 1);
         this.current.textContent = formatLapTime(player.lapStartedAt === null ? null : raceTime - player.lapStartedAt);
         this.best.textContent = formatLapTime(player.bestLap);
-        this.speed.textContent = String(Math.round(Math.abs(player.car.currentSpeed) * MS_TO_KMH));
+        this.speed.textContent = String(Math.round(Math.abs(player.car.forwardSpeed) * MS_TO_KMH));
+
+        const {car} = player;
+        this.drift.hidden = !car.isDrifting;
+        if (car.isDrifting) this.drift.textContent = `Drift ${Math.round((car.slipAngle * 180) / Math.PI)}°`;
     }
 
     announce(event: RaceEvent) {
