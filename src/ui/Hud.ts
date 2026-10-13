@@ -33,7 +33,7 @@ export class Hud {
             <div class="hud__speed"><span data-speed>0</span><small>km/h</small></div>
             <p class="hud__drift" hidden></p>
             <p class="hud__toast" role="status"></p>
-            <p class="hints hud__hints"><kbd>Espace</kbd> frein à main · <kbd>V</kbd> caméra · <kbd>C</kbd> colliders · <kbd>Échap</kbd> menu</p>`;
+            <p class="hints hud__hints"><kbd>Espace</kbd> frein à main · <kbd>M</kbd> son · <kbd>V</kbd> caméra · <kbd>C</kbd> colliders · <kbd>Échap</kbd> menu</p>`;
         container.appendChild(this.root);
 
         this.trackName = this.root.querySelector(".hud__track")!;

@@ -1,5 +1,6 @@
 import { NeuralDriver } from "../ai/NeuralDriver";
 import { analyzeRace } from "../analysis/coach";
+import { CarAudio } from "../audio/CarAudio";
 import { Telemetry } from "../analysis/Telemetry";
 import { buildTrackProfile, type TrackProfile } from "../analysis/trackProfile";
 import { InputState } from "../input/InputState";
@@ -48,6 +49,7 @@ export class Game {
     private readonly trainingHud: TrainingHud;
     private readonly carTooltip: CarTooltip;
     private readonly report: ReportScreen;
+    private readonly audio = new CarAudio();
     private readonly focus = new FocusTracker();
     private screen: Screen = {kind: "menu"};
     private race!: Race;
@@ -73,6 +75,7 @@ export class Game {
             menu: () => this.openMenu(this.race.definition),
         });
         window.addEventListener("keydown", event => this.onKey(event));
+        window.addEventListener("pointerdown", () => this.audio.unlock());
         this.openMenu(TRACKS[0]);
     }
 
@@ -121,6 +124,7 @@ export class Game {
         if (screen.kind === "race") {
             const {player, telemetry} = screen;
             telemetry.record(player, this.race.time);
+            this.audio.update(player.car, player.controls, player.simulation.inContact);
             for (const event of events) {
                 if (event.entrant !== player) continue;
                 this.hud.announce(event);
@@ -177,6 +181,7 @@ export class Game {
         saveRace(id, report.bestLap);
 
         this.screen = {kind: "report", player};
+        this.audio.silence();
         this.hud.hide();
         this.report.show(report, {trackName: name, centerline: this.race.track.centerline, history: racesOn(id), previousBest});
     }
@@ -208,6 +213,7 @@ export class Game {
         this.trainingHud.hide();
         this.carTooltip.hide();
         this.report.hide();
+        this.audio.silence();
     }
 
     // Plan de coupe vers une autre voiture, comme une réalisation TV.
@@ -219,6 +225,8 @@ export class Game {
 
     private onKey(event: KeyboardEvent) {
         const {screen} = this;
+        this.audio.unlock();
+        if (event.code === "KeyM") this.audio.toggleMute();
         if (event.code === "KeyC") {
             this.showColliders = !this.showColliders;
             this.race.debugView.group.visible = this.showColliders;
